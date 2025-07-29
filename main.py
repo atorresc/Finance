@@ -28,7 +28,7 @@ TICKERS = [
 executor = ThreadPoolExecutor()
 
 # Cache con TTL de 15 minutos (900 segundos)
-ticker_cache = TTLCache(maxsize=100, ttl=10)
+ticker_cache = TTLCache(maxsize=100, ttl=900)
 
 #@cached(ticker_cache)
 def get_info(ticker):
@@ -41,15 +41,28 @@ def get_balance_sheet(ticker):
 #@cached(ticker_cache)
 def get_dividends(ticker):
     return yf.Ticker(ticker).dividends[-6:]
+    
+    
+@cached(ticker_cache)
+def get_ticker_data(ticker: str):
+    t = yf.Ticker(ticker)
+    return {
+        "info": t.info,
+        "dividends": t.dividends[-6:],
+        "balance": t.balance_sheet
+    } 
 
 async def calcular_datos_clave_async(ticker: str):
     try:
+        #loop = asyncio.get_event_loop()
+        #info, dividends, balance = await asyncio.gather(
+        #    loop.run_in_executor(executor, get_info, ticker),
+        #    loop.run_in_executor(executor, get_dividends, ticker),
+        #    loop.run_in_executor(executor, get_balance_sheet, ticker),
+        #)
+        
         loop = asyncio.get_event_loop()
-        info, dividends, balance = await asyncio.gather(
-            loop.run_in_executor(executor, get_info, ticker),
-            loop.run_in_executor(executor, get_dividends, ticker),
-            loop.run_in_executor(executor, get_balance_sheet, ticker),
-        )
+        data = await loop.run_in_executor(executor, get_ticker_data, ticker)
 
         precio = info.get("regularMarketPrice")
         nombre = info.get("longName", ticker)
