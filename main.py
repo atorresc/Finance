@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from datetime import datetime
 import yfinance as yf
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 app = FastAPI()
 
@@ -22,17 +24,39 @@ TICKERS = [
     "STORAGE18.MX"
 ]
 
+executor = ThreadPoolExecutor()
 
-def calcular_datos_clave(ticker: str):
+def get_balance_sheet(ticker):
     try:
-        yf_ticker = yf.Ticker(ticker)
-        info = yf_ticker.info
-        precio = info.get("regularMarketPrice")
-        nombre = info.get("longName", ticker)
+        return yf.Ticker(ticker).balance_sheet
+    except Exception:
+        return None
 
-        # Dividendos recientes
-        dividendos = yf_ticker.dividends[-6:]
-        fechas = dividendos.index.to_list()
+def get_info(ticker):
+    try:
+        return yf.Ticker(ticker).info
+    except Exception:
+        return None
+
+def get_dividends(ticker):
+    try:
+        return yf.Ticker(ticker).dividends[-6:]
+    except Exception:
+        return None
+
+async def calcular_datos_clave_async(ticker: str):
+    try:
+        loop = asyncio.get_event_loop()
+        yf_ticker = yf.Ticker(ticker)
+        info, dividends, balance = await asyncio.gather(
+            loop.run_in_executor(executor, get_info, ticker),
+            loop.run_in_executor(executor, get_dividends, ticker),
+            loop.run_in_executor(executor, get_balance_sheet, ticker),
+        )
+
+        precio = info.get("regularMarketPrice")
+        nombre = info.get("shortName", ticker)
+        fechas = dividends.index.to_list() if dividends is not None else []
 
         if len(fechas) >= 2:
             intervalos = [(fechas[i] - fechas[i - 1]).days for i in range(1, len(fechas))]
@@ -43,14 +67,12 @@ def calcular_datos_clave(ticker: str):
             tipo_pago = "Desconocido"
             frecuencia_anual = 4
 
-        dividendo_reciente = round(dividendos[-1], 4) if not dividendos.empty else None
+        dividendo_reciente = round(dividends[-1], 4) if dividends is not None and not dividends.empty else None
         dy = round((dividendo_reciente * frecuencia_anual / precio) * 100, 2) if (precio and dividendo_reciente) else None
 
-        # Datos dinámicos
-        affo_aproximado = info.get("freeCashflow")  # Proxy del AFFO
+        affo_aproximado = info.get("freeCashflow")
         deuda_total = info.get("totalDebt")
-        balance = yf_ticker.balance_sheet
-        activos_totales = balance.loc["Total Assets"][0] if "Total Assets" in balance.index else None
+        activos_totales = balance.loc["Total Assets"][0] if balance is not None and "Total Assets" in balance.index else None
         cbfis = info.get("sharesOutstanding")
 
         affo_por_cbfis = round(affo_aproximado / cbfis, 4) if affo_aproximado and cbfis else None
@@ -75,14 +97,12 @@ def calcular_datos_clave(ticker: str):
         }
 
     except Exception as e:
-        return {
-            "Ticker": ticker,
-            "Error": str(e)
-        }
+        return {"Ticker": ticker, "Error": str(e)}
 
 @app.get("/fibras")
-def get_todas_las_fibras():
-    return {"fibras": [calcular_datos_clave(t) for t in TICKERS]}
+async def get_todas_las_fibras():
+    resultados = await asyncio.gather(*(calcular_datos_clave_async(t) for t in TICKERS))
+    return {"fibras": resultados}
 
 @app.get("/ticker-info/{ticker}")
 def get_info_completa_de_ticker(ticker: str):
