@@ -63,6 +63,10 @@ async def calcular_datos_clave_async(ticker: str):
         
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(executor, get_ticker_data, ticker)
+        
+        info = data["info"]
+        dividends = data["dividends"]
+        balance = data["balance"]
 
         precio = info.get("regularMarketPrice")
         nombre = info.get("longName", ticker)
