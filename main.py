@@ -3,6 +3,7 @@ from datetime import datetime
 import yfinance as yf
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from cachetools import TTLCache, cached
 
 app = FastAPI()
 
@@ -26,28 +27,24 @@ TICKERS = [
 
 executor = ThreadPoolExecutor()
 
-def get_balance_sheet(ticker):
-    try:
-        return yf.Ticker(ticker).balance_sheet
-    except Exception:
-        return None
+# Cache con TTL de 15 minutos (900 segundos)
+ticker_cache = TTLCache(maxsize=100, ttl=900)
 
+@cached(ticker_cache)
 def get_info(ticker):
-    try:
-        return yf.Ticker(ticker).info
-    except Exception:
-        return None
+    return yf.Ticker(ticker).info
 
+@cached(ticker_cache)
+def get_balance_sheet(ticker):
+    return yf.Ticker(ticker).balance_sheet
+
+@cached(ticker_cache)
 def get_dividends(ticker):
-    try:
-        return yf.Ticker(ticker).dividends[-6:]
-    except Exception:
-        return None
+    return yf.Ticker(ticker).dividends[-6:]
 
 async def calcular_datos_clave_async(ticker: str):
     try:
         loop = asyncio.get_event_loop()
-        yf_ticker = yf.Ticker(ticker)
         info, dividends, balance = await asyncio.gather(
             loop.run_in_executor(executor, get_info, ticker),
             loop.run_in_executor(executor, get_dividends, ticker),
@@ -107,7 +104,6 @@ async def get_todas_las_fibras():
 @app.get("/ticker-info/{ticker}")
 def get_info_completa_de_ticker(ticker: str):
     try:
-        yf_ticker = yf.Ticker(ticker.upper())
-        return yf_ticker.info
+        return get_info(ticker.upper())
     except Exception as e:
         return {"error": str(e)}
