@@ -28,17 +28,17 @@ TICKERS = [
 executor = ThreadPoolExecutor()
 
 # Cache con TTL de 15 minutos (900 segundos)
-ticker_cache = TTLCache(maxsize=100, ttl=900)
+ticker_cache = TTLCache(maxsize=100, ttl=10)
 
-@cached(ticker_cache)
+#@cached(ticker_cache)
 def get_info(ticker):
     return yf.Ticker(ticker).info
 
-@cached(ticker_cache)
+#@cached(ticker_cache)
 def get_balance_sheet(ticker):
     return yf.Ticker(ticker).balance_sheet
 
-@cached(ticker_cache)
+#@cached(ticker_cache)
 def get_dividends(ticker):
     return yf.Ticker(ticker).dividends[-6:]
 
@@ -52,7 +52,7 @@ async def calcular_datos_clave_async(ticker: str):
         )
 
         precio = info.get("regularMarketPrice")
-        nombre = info.get("shortName", ticker)
+        nombre = info.get("longName", ticker)
         fechas = dividends.index.to_list() if dividends is not None else []
 
         if len(fechas) >= 2:
