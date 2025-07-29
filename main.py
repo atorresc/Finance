@@ -121,6 +121,6 @@ async def get_todas_las_fibras():
 @app.get("/ticker-info/{ticker}")
 def get_info_completa_de_ticker(ticker: str):
     try:
-        return get_info(ticker.upper())
+        return get_ticker_data(ticker.upper())["info"]
     except Exception as e:
         return {"error": str(e)}
