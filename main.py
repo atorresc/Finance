@@ -12,8 +12,16 @@ TICKERS = [
     "FCFE18.MX",
     "FIBRAPL14.MX",
     "FSITES20.MX",
-    "FSHOP13.MX"
+    "FSHOP13.MX",
+    "FVIA16.MX",
+    "FINN13.MX",
+    "NEXT25.MX",
+    "FIHO12.MX",
+    "FUNO11.MX",
+    "EDUCA18.MX",
+    "STORAGE18.MX"
 ]
+
 
 def calcular_datos_clave(ticker: str):
     try:
