@@ -28,7 +28,7 @@ def calcular_datos_clave(ticker: str):
         yf_ticker = yf.Ticker(ticker)
         info = yf_ticker.info
         precio = info.get("regularMarketPrice")
-        nombre = info.get("shortName", ticker)
+        nombre = info.get("longName", ticker)
 
         # Dividendos recientes
         dividendos = yf_ticker.dividends[-6:]
