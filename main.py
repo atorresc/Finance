@@ -50,10 +50,14 @@ def get_ticker_data(ticker: str):
         "info": t.info,
         "dividends": t.dividends[-6:],
         "balance": t.balance_sheet
-    } 
+    }    
+    
+
 
 async def calcular_datos_clave_async(ticker: str):
     try:
+        
+        
         #loop = asyncio.get_event_loop()
         #info, dividends, balance = await asyncio.gather(
         #    loop.run_in_executor(executor, get_info, ticker),
@@ -63,10 +67,12 @@ async def calcular_datos_clave_async(ticker: str):
         
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(executor, get_ticker_data, ticker)
-        
+
         info = data["info"]
         dividends = data["dividends"]
         balance = data["balance"]
+
+        
 
         precio = info.get("regularMarketPrice")
         nombre = info.get("longName", ticker)
@@ -87,11 +93,22 @@ async def calcular_datos_clave_async(ticker: str):
         affo_aproximado = info.get("freeCashflow")
         deuda_total = info.get("totalDebt")
         activos_totales = balance.loc["Total Assets"][0] if balance is not None and "Total Assets" in balance.index else None
+        #if info.get("sharesOutstanding") is not None and info.get("sharesOutstanding") >0 :
         cbfis = info.get("sharesOutstanding")
+        #else:
+        #    cbfis = info.get("impliedSharesOutstanding")
 
         affo_por_cbfis = round(affo_aproximado / cbfis, 4) if affo_aproximado and cbfis else None
         payout_ratio = round((dividendo_reciente * frecuencia_anual * cbfis / affo_aproximado) * 100, 2) if (affo_aproximado and dividendo_reciente and cbfis) else None
         leverage_ratio = round((deuda_total / activos_totales) * 100, 2) if (deuda_total and activos_totales) else None
+
+        # NOI estimado como EBITDA (aproximación)
+        noi = info.get("ebitdaMargins") * info.get("totalRevenue") if info.get("ebitdaMargins") and info.get("totalRevenue") else None
+        noi_por_cbfis = round(noi / cbfis, 4) if noi and cbfis else None
+
+        # Valor en libros por CBFI
+        valor_en_libros = activos_totales - deuda_total if activos_totales and deuda_total else None
+        valor_en_libros_por_cbfis = round(valor_en_libros / cbfis, 4) if valor_en_libros and cbfis else None
 
         return {
             "FIBRA": nombre,
@@ -103,6 +120,9 @@ async def calcular_datos_clave_async(ticker: str):
             "AFFO estimado (freeCashflow)": affo_aproximado,
             "CBFIs en circulación (dinámico)": cbfis,
             "AFFO por CBFI": affo_por_cbfis,
+            "NOI estimado (EBITDA aprox)": noi,
+            "NOI por CBFI": noi_por_cbfis,
+            "Valor en libros por CBFI": valor_en_libros_por_cbfis,
             "AFFO Payout Ratio (%)": payout_ratio,
             "Deuda total": deuda_total,
             "Activos totales": activos_totales,
