@@ -144,3 +144,7 @@ def get_info_completa_de_ticker(ticker: str):
         return get_ticker_data(ticker.upper())["info"]
     except Exception as e:
         return {"error": str(e)}
+
+@app.get("/")
+def health_check():
+    return {"status": "ok"}
